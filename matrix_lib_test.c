@@ -6,7 +6,12 @@
 
 static void print_matrix_limited(const char *label, const Matrix *m) {
     unsigned long int total = m->height * m->width;
-    unsigned long int limit = total < 256UL ? total : 256UL;
+
+    unsigned long int limit = total;
+    if (limit > ((unsigned long)256)) {
+        limit = (unsigned long)256;
+    }
+    
     printf("\n%s (h=%lu, w=%lu) - até %lu elementos (ordem coluna):\n",
            label, m->height, m->width, limit);
 
