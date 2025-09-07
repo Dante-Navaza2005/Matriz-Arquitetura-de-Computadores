@@ -23,7 +23,7 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
     unsigned long int matrixB_width = matrixB->width;   
     unsigned long int matrixA_width = matrixA->width;   
 
-    for (unsigned long int col = 0; col < matrixB_width; col++) { // varre colunas de B
+    for (unsigned long int col = 0; col < matrixB_width; col++) { 
         float *b_col = matrixB->rows + col;  // pega o início da coluna
 
         for (unsigned long int row = 0; row < matrixA_height; row++) {
