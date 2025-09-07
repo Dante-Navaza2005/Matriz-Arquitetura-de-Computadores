@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N 2048  
+#define DIMENSION 2048  
 
 int main(void) {
     FILE *arquivoA, *arquivoB;
@@ -22,15 +22,12 @@ int main(void) {
         return 1;
     }
 
-    total = (long long)N * N;  // número total de elementos (2048*2048)
-
-    // Escreve matriz A (todos 2.0f)
+    total = (long long)DIMENSION * DIMENSION;  
     value = 2.0f;
     for (i = 0; i < total; i++) {
         fwrite(&value, sizeof(float), 1, arquivoA);
     }
 
-    // Escreve matriz B (todos 5.0f)
     value = 5.0f;
     for (i = 0; i < total; i++) {
         fwrite(&value, sizeof(float), 1, arquivoB);
@@ -39,6 +36,6 @@ int main(void) {
     fclose(arquivoA);
     fclose(arquivoB);
 
-    printf("Arquivos gerados com sucesso! (%lld elementos em cada matriz)\n", total);
+    printf("Arquivos gerados com sucesso! (%lld elementos em cada matriz %d X %d)\n", total, DIMENSION, DIMENSION);
     return 0;
 }
