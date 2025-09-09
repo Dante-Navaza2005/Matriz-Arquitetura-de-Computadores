@@ -20,13 +20,13 @@ int main(void) {
     }
 
     value = 2.0f;
-    for (i = 0; i < 128; i++) {
+    for (i = 0; i <= 2048; i++) {
         fwrite(&value, sizeof(float), 1, fa);
     }
 
     // Escreve 128 floats = 5.0 em matrizB.dat
     value = 5.0f;
-    for (i = 0; i < 128; i++) {
+    for (i = 0; i <= 2048; i++) {
         fwrite(&value, sizeof(float), 1, fb);
     }
 
