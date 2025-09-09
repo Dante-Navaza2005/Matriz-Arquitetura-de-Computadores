@@ -23,19 +23,21 @@ int main(void) {
     }
 
     total = (long long)DIMENSION * DIMENSION;  
-    value = 2.0f;
+
     for (i = 0; i < total; i++) {
+        value = (float)i;
         fwrite(&value, sizeof(float), 1, arquivoA);
     }
 
-    value = 5.0f;
     for (i = 0; i < total; i++) {
+        value = (float)(i + 1);
         fwrite(&value, sizeof(float), 1, arquivoB);
     }
 
     fclose(arquivoA);
     fclose(arquivoB);
 
-    printf("Arquivos gerados com sucesso! (%lld elementos em cada matriz %d X %d)\n", total, DIMENSION, DIMENSION);
+    printf("Arquivos gerados com sucesso! (%lld elementos em cada matriz %d X %d)\n", 
+           total, DIMENSION, DIMENSION);
     return 0;
 }

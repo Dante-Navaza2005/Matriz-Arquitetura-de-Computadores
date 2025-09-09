@@ -6,25 +6,21 @@
 
 static void print_matrix_limited(const char *label, const Matrix *m) {
     unsigned long int total = m->height * m->width;
+    unsigned long int limit = total > 256UL ? 256UL : total;
 
-    unsigned long int limit = total;
-    if (limit > ((unsigned long)256)) {
-        limit = (unsigned long)256;
-    }
-    
-    printf("\n%s (h=%lu, w=%lu) - até %lu elementos (ordem coluna):\n",
+    printf("\n(%s %lu X %lu) até %lu elementos:\n",
            label, m->height, m->width, limit);
 
     unsigned long int printed = 0;
-    for (unsigned long int col = 0; col < m->width && printed < limit; col++) {
-        for (unsigned long int row = 0; row < m->height && printed < limit; row++) {
-            float v = m->rows[row * m->width + col];
-            printf("%.2f ", v);
+    for (unsigned long int row = 0; row < m->height && printed < limit; row++) {
+        for (unsigned long int col = 0; col < m->width && printed < limit; col++) {
+            printf("%.2f ", m->rows[row * m->width + col]);
             printed++;
         }
+        printf("\n");
     }
-    printf("\n");
 }
+
 
 
 int getMatrixFromFile(char* path, Matrix* m){
@@ -93,53 +89,51 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    Matrix mA = {heightA, widthA, malloc(sizeof(float) * heightA * widthA)};
-    Matrix mB = {heightB, widthB, malloc(sizeof(float) * heightB * widthB)};
-    Matrix mC = {heightA, widthB, malloc(sizeof(float) * heightA * widthB)};
+    Matrix matrixA = {heightA, widthA, malloc(sizeof(float) * heightA * widthA)};
+    Matrix matrixB = {heightB, widthB, malloc(sizeof(float) * heightB * widthB)};
+    Matrix matrixC = {heightA, widthB, malloc(sizeof(float) * heightA * widthB)};
 
     for (int i = 0; i < heightA * widthB; i++) {
-        mC.rows[i] = 0.0f;
+        matrixC.rows[i] = 0.0f;
     }
+    print_matrix_limited("Matriz C inicializada (zerada)", &matrixC);
 
-    if (!getMatrixFromFile(fileA, &mA)){
+    if (!getMatrixFromFile(fileA, &matrixA)){
         return 1;
     } 
-    print_matrix_limited("Matriz A", &mA);
+    print_matrix_limited("Matriz A", &matrixA);
 
-    if (!getMatrixFromFile(fileB, &mB)){
+    if (!getMatrixFromFile(fileB, &matrixB)){
         return 1;
     } 
-    print_matrix_limited("Matriz B", &mB);
+    print_matrix_limited("Matriz B", &matrixB);
 
     gettimeofday(&start, NULL);
-    if (!scalarMatrixMult(num_esc, &mA)) {
+    if (!scalarMatrixMult(num_esc, &matrixA)) {
         printf("Erro ao calcular a multiplicação escalar de A\n");
         return 1;
     }
     gettimeofday(&stop, NULL);
-    printf("\nTempo da scalarMatrixMult: %.3f ms\n", timedifference_msec(start, stop));
+    printf("\nTempo da multiplicacao da matriz por escalar: %.3f ms\n", timedifference_msec(start, stop));
 
-    if (!saveMatrix(fileA_r, &mA)) return 1;
+    if (!saveMatrix(fileA_r, &matrixA)) return 1;
     printf("\nMatriz A dps da multiplicacao escalar por %.2f:", num_esc);
-    print_matrix_limited("", &mA);
+    print_matrix_limited("", &matrixA);
 
     gettimeofday(&start, NULL);
-    if (!matrixMatrixMult(&mA, &mB, &mC)) {
+    if (!matrixMatrixMult(&matrixA, &matrixB, &matrixC)) {
         printf("Erro ao multiplicar as matrizes A e B\n");
         return 1;
     }
     gettimeofday(&stop, NULL);
-    printf("\nTempo da matrixMatrixMult: %.3f ms\n", timedifference_msec(start, stop));
+    printf("\nTempo da multiplicacao entre as matrizes A e B: %.3f ms\n", timedifference_msec(start, stop));
 
-    if (!saveMatrix(fileC, &mC)) return 1;
-    print_matrix_limited("Matriz C dps de multiplicar A e B", &mC);
+    if (!saveMatrix(fileC, &matrixC)) return 1;
+    print_matrix_limited("Matriz C dps de multiplicar A e B", &matrixC);
 
-    printf("\n");
-    print_cpu_model();
-
-    free(mA.rows);
-    free(mB.rows);
-    free(mC.rows);
+    free(matrixA.rows);
+    free(matrixB.rows);
+    free(matrixC.rows);
 
     gettimeofday(&overall_t2, NULL);  
     printf("\nTempo total do programa: %.3f ms\n", timedifference_msec(overall_t1, overall_t2));
