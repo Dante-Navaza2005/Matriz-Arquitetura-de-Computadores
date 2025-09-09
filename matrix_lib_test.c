@@ -26,31 +26,6 @@ static void print_matrix_limited(const char *label, const Matrix *m) {
     printf("\n");
 }
 
-static void print_cpu_model(void) {
-    char buffer[4096];
-    FILE *pipe = popen("lscpu 2>/dev/null | grep -i 'model name' | sed 's/.*: *//'", "r");
-    if (pipe) {
-        if (fgets(buffer, sizeof(buffer), pipe)) {
-            buffer[strcspn(buffer, "\r\n")] = 0;
-            printf("CPU Model: %s\n", buffer);
-            pclose(pipe);
-            return;
-        }
-        pclose(pipe);
-    }
-
-    pipe = popen("sysctl -n machdep.cpu.brand_string 2>/dev/null", "r");
-    if (pipe) {
-        if (fgets(buffer, sizeof(buffer), pipe)) {
-            buffer[strcspn(buffer, "\r\n")] = 0;
-            printf("CPU Model: %s\n", buffer);
-            pclose(pipe);
-            return;
-        }
-        pclose(pipe);
-    }
-    printf("CPU Model: (não disponível)\n");
-}
 
 int getMatrixFromFile(char* path, Matrix* m){
     FILE* f = fopen(path, "rb");
