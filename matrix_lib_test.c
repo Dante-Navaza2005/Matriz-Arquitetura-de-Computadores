@@ -86,24 +86,11 @@ int main(int argc, char *argv[]) {
     } 
 
     printf("\nMatriz A:\n");
-    for (unsigned long int linha = 0; linha < mA.height; linha++) {
-        for (unsigned long int coluna = 0; coluna < mA.width; coluna++) {
-            printf("%.2f ", mA.rows[linha * mA.width + coluna]);
-        }
-        printf("\n");
-    }
 
     if (!getMatrixFromFile(fileB, &mB)){
         return 1;
     } 
 
-    printf("\nMatriz B:\n");
-    for (unsigned long int linha = 0; linha < mB.height; linha++) {
-        for (unsigned long int coluna = 0; coluna < mB.width; coluna++) {
-            printf("%.2f ", mB.rows[linha * mB.width + coluna]);
-        }
-        printf("\n");
-    }
 
     // Medindo scalarMatrixMult
     gettimeofday(&t_start, NULL);
@@ -117,12 +104,7 @@ int main(int argc, char *argv[]) {
     if (!saveMatrix(fileA_r, &mA)) return 1;
 
     printf("\nMatriz A dps da multiplicacao escalar por %.2f:\n", num_esc);
-    for (unsigned long int linha = 0; linha < mA.height; linha++) {
-        for (unsigned long int coluna = 0; coluna < mA.width; coluna++) {
-            printf("%.2f ", mA.rows[linha * mA.width + coluna]);
-        }
-        printf("\n");
-    }
+
 
     // Medindo matrixMatrixMult
     gettimeofday(&t_start, NULL);
@@ -137,12 +119,7 @@ int main(int argc, char *argv[]) {
     if (!saveMatrix(fileC, &mC)) return 1;
 
     printf("\nMatriz C dps de multiplicar A e B:\n");
-    for (unsigned long int linha = 0; linha < mC.height; linha++) {
-        for (unsigned long int coluna = 0; coluna < mC.width; coluna++) {
-            printf("%.2f ", mC.rows[linha * mC.width + coluna]);
-        }
-        printf("\n");
-    }
+    
 
     free(mA.rows);
     free(mB.rows);
