@@ -1,6 +1,6 @@
 /*
 Dante Honorato Navaza 2321406
-Maria Laura 2320467
+Maria Laura Soares 2320467
 */
 
 #include <stdio.h>
