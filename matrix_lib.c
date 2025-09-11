@@ -1,3 +1,8 @@
+/*
+Dante Honorato Navaza 2321406
+Maria Laura 2320467
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "matrix_lib.h"
