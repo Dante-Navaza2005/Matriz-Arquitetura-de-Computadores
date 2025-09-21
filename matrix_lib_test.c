@@ -1,7 +1,32 @@
+/*
+Dante Honorato Navaza 2321406
+Maria Laura Soares 2320467
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "matrix_lib.h" 
 #include "timer.h"
+
+static void print_matrix_limited(const char *label, const Matrix *m) {
+    unsigned long int total = m->height * m->width;
+    unsigned long int limit = total > 256UL ? 256UL : total;
+
+    printf("\n(%s %lu X %lu) até %lu elementos:\n",
+           label, m->height, m->width, limit);
+
+    unsigned long int printed = 0;
+    for (unsigned long int row = 0; row < m->height && printed < limit; row++) {
+        for (unsigned long int col = 0; col < m->width && printed < limit; col++) {
+            printf("%.2f ", m->rows[row * m->width + col]);
+            printed++;
+        }
+        printf("\n");
+    }
+}
+
+
 
 int getMatrixFromFile(char* path, Matrix* m){
     FILE* f = fopen(path, "rb");
@@ -11,7 +36,6 @@ int getMatrixFromFile(char* path, Matrix* m){
         exit(1);
     }
 
-     // Lê todos os elementos de uma vez
     size_t total = m->height * m->width;
     size_t read = fread(m->rows, sizeof(float), total, f);
     fclose(f);
@@ -45,15 +69,15 @@ int saveMatrix(char* path, Matrix *m){
 
 
 int main(int argc, char *argv[]) {
+    
     if (argc != 10) {
         printf("Uso: ./matrix_lib_test <escalar> <hA> <wA> <hB> <wB> <arquivoA> <arquivoB> <arquivoA_result> <arquivoC>\n");
         return 1;
     }
 
-    struct timeval overall_t1, overall_t2, t_start, t_stop;
+    struct timeval start, stop, overall_t1, overall_t2;
     gettimeofday(&overall_t1, NULL);
 
-    // Lendo os argumentos da linha de comando
     float num_esc = atof(argv[1]);
     unsigned long int heightA = atol(argv[2]);
     unsigned long int widthA = atol(argv[3]);
@@ -65,67 +89,58 @@ int main(int argc, char *argv[]) {
     char* fileA_r = argv[8];
     char* fileC = argv[9];
 
-    // Verificar se as matrizes A e B podem ser multiplicadas 
-    if (widthA != heightB) { // witdhA é a quantidade de colunas de A e heightB é a quantidades de linhas de B
+    if (widthA != heightB) { 
         printf("O num de colunas de A (%lu) é diferente do num de linhas de B (%lu).\n", widthA, heightB);
         return 1;
     }
 
-    Matrix mA = {heightA, widthA, malloc(sizeof(float) * heightA * widthA)};
-    Matrix mB = {heightB, widthB, malloc(sizeof(float) * heightB * widthB)};
-    Matrix mC = {heightA, widthB, malloc(sizeof(float) * heightA * widthB)};
+    Matrix matrixA = {heightA, widthA, malloc(sizeof(float) * heightA * widthA)};
+    Matrix matrixB = {heightB, widthB, malloc(sizeof(float) * heightB * widthB)};
+    Matrix matrixC = {heightA, widthB, malloc(sizeof(float) * heightA * widthB)};
 
-    // Inicializar a matriz C com zeros apenas
     for (int i = 0; i < heightA * widthB; i++) {
-        mC.rows[i] = 0.0f;
+        matrixC.rows[i] = 0.0f;
     }
+    print_matrix_limited("Matriz C inicializada (zerada)", &matrixC);
 
-    // Populando matriz A e B dos arquivos binários
-    if (!getMatrixFromFile(fileA, &mA)){
+    if (!getMatrixFromFile(fileA, &matrixA)){
         return 1;
     } 
+    print_matrix_limited("Matriz A", &matrixA);
 
-    printf("\nMatriz A:\n");
-
-    if (!getMatrixFromFile(fileB, &mB)){
+    if (!getMatrixFromFile(fileB, &matrixB)){
         return 1;
     } 
+    print_matrix_limited("Matriz B", &matrixB);
 
-
-    // Medindo scalarMatrixMult
-    gettimeofday(&t_start, NULL);
-    if (!scalarMatrixMult(num_esc, &mA)) {
+    gettimeofday(&start, NULL);
+    if (!scalarMatrixMult(num_esc, &matrixA)) {
         printf("Erro ao calcular a multiplicação escalar de A\n");
         return 1;
     }
-    gettimeofday(&t_stop, NULL);
-    printf("\nTempo da scalarMatrixMult: %.3f ms\n", timedifference_msec(t_start, t_stop));
+    gettimeofday(&stop, NULL);
+    printf("\nTempo da multiplicacao da matriz por escalar: %.3f ms\n", timedifference_msec(start, stop));
 
-    if (!saveMatrix(fileA_r, &mA)) return 1;
+    if (!saveMatrix(fileA_r, &matrixA)) return 1;
+    printf("\nMatriz A dps da multiplicacao escalar por %.2f:", num_esc);
+    print_matrix_limited("", &matrixA);
 
-    printf("\nMatriz A dps da multiplicacao escalar por %.2f:\n", num_esc);
-
-
-    // Medindo matrixMatrixMult
-    gettimeofday(&t_start, NULL);
-    if (!matrixMatrixMult(&mA, &mB, &mC)) {
+    gettimeofday(&start, NULL);
+    if (!matrixMatrixMult(&matrixA, &matrixB, &matrixC)) {
         printf("Erro ao multiplicar as matrizes A e B\n");
         return 1;
     }
-    gettimeofday(&t_stop, NULL);
-    printf("\nTempo da matrixMatrixMult: %.3f ms\n", timedifference_msec(t_start, t_stop));
+    gettimeofday(&stop, NULL);
+    printf("\nTempo da multiplicacao entre as matrizes A e B: %.3f ms\n", timedifference_msec(start, stop));
 
-    // Salvando a matriz C
-    if (!saveMatrix(fileC, &mC)) return 1;
+    if (!saveMatrix(fileC, &matrixC)) return 1;
+    print_matrix_limited("Matriz C dps de multiplicar A e B", &matrixC);
 
-    printf("\nMatriz C dps de multiplicar A e B:\n");
-    
+    free(matrixA.rows);
+    free(matrixB.rows);
+    free(matrixC.rows);
 
-    free(mA.rows);
-    free(mB.rows);
-    free(mC.rows);
-
-    gettimeofday(&overall_t2, NULL);  // fim do programa
+    gettimeofday(&overall_t2, NULL);  
     printf("\nTempo total do programa: %.3f ms\n", timedifference_msec(overall_t1, overall_t2));
 
 

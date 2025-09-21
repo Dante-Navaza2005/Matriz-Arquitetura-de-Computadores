@@ -1,42 +1,43 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define N 2048  // dimensão da matriz (NxN)
+#define DIMENSION 2048  
 
 int main(void) {
-    FILE *fa, *fb;
+    FILE *arquivoA, *arquivoB;
     float value;
-    long total = (long)N * (long)N;  // número total de floats
-    long i;
+    long long total;
+    long long i;
 
-    fa = fopen("matrizA.dat", "wb");
-    if (!fa) {
+    arquivoA = fopen("matrizA.dat", "wb");
+    if (!arquivoA) {
         perror("Erro ao abrir matrizA.dat");
         return 1;
     }
 
-    fb = fopen("matrizB.dat", "wb");
-    if (!fb) {
+    arquivoB = fopen("matrizB.dat", "wb");
+    if (!arquivoB) {
         perror("Erro ao abrir matrizB.dat");
-        fclose(fa);
+        fclose(arquivoA);
         return 1;
     }
 
-    // Escreve matrizA: todos os elementos = 2.0
-    value = 2.0f;
+    total = (long long)DIMENSION * DIMENSION;  
+
     for (i = 0; i < total; i++) {
-        fwrite(&value, sizeof(float), 1, fa);
+        value = (float)i;
+        fwrite(&value, sizeof(float), 1, arquivoA);
     }
 
-    // Escreve matrizB: todos os elementos = 5.0
-    value = 5.0f;
     for (i = 0; i < total; i++) {
-        fwrite(&value, sizeof(float), 1, fb);
+        value = (float)(i + 1);
+        fwrite(&value, sizeof(float), 1, arquivoB);
     }
 
-    fclose(fa);
-    fclose(fb);
+    fclose(arquivoA);
+    fclose(arquivoB);
 
-    printf("Arquivos gerados com sucesso! (%dx%d floats)\n", N, N);
+    printf("Arquivos gerados com sucesso! (%lld elementos em cada matriz %d X %d)\n", 
+           total, DIMENSION, DIMENSION);
     return 0;
 }
