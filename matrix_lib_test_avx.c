@@ -6,7 +6,7 @@ Maria Laura Soares 2320467
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <immintrin.h>  // AVX intrinsics
+#include <immintrin.h>  
 #include "matrix_lib.h" 
 #include "timer.h"
 
@@ -39,7 +39,7 @@ int getMatrixFromFile(const char* path, Matrix* m){
 
     size_t total = m->height * m->width;
     if (total % 8 != 0) {
-        return 0; // erro: não múltiplo de 8, precisa estar alinhado
+        return 0; 
     }
     float* auxiliar = (float*) aligned_alloc(32, total * sizeof(float));
     if (!auxiliar) {
@@ -86,7 +86,7 @@ int saveMatrix(const char* path, Matrix *m){
 int initializeWithZeros(Matrix *m){
     size_t total = m->height * m->width;
     if (total % 8 != 0) {
-        return 0; // erro: não múltiplo de 8, precisa estar alinhado
+        return 0; 
     }
     __m256 zeros = _mm256_setzero_ps();
     for (size_t i = 0; i < total; i += 8) {

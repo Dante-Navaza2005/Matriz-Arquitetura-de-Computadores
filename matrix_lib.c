@@ -1,6 +1,11 @@
+/*
+Dante Honorato Navaza 2321406
+Maria Laura Soares 2320467
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <immintrin.h>  // cabeçalho para AVX, AVX2 e FMA
+#include <immintrin.h>  
 #include "matrix_lib.h"
 
 // Multiplicação de uma matriz por um escalar usando AVX
@@ -16,19 +21,18 @@ int scalarMatrixMult(float scalar_value, struct matrix *matrix) {
     // Esse vetor é usado para multiplicar "em paralelo" 8 elementos da matriz.
     __m256 scalar_vec = _mm256_set1_ps(scalar_value);
 
-    // processa em blocos de 8 floats (256 bits)
+    // usa em blocos de 8 floats (256 bits)
     for (; i + 8 <= size; i += 8) {
-        // carrega 8 floats consecutivos da matriz (load alinhado)
         __m256 m = _mm256_load_ps(&(matrix->rows[i]));
 
-        // multiplica elemento a elemento: m = m * scalar_vec
+
         m = _mm256_mul_ps(m, scalar_vec);
 
-        // armazena o resultado de volta na matriz
+        // salva o resultado de volta na matriz
         _mm256_store_ps(&(matrix->rows[i]), m);
     }
 
-    // caso tenha sobrado algum elemento 
+    // se sobrou sobrado algum elemento 
     for (; i < size; i++) {
         matrix->rows[i] *= scalar_value;
     }
@@ -50,8 +54,8 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
     unsigned long int P = matrixB->width;    
 
 
-    for (unsigned long int i = 0; i < M; i++) {       // percorre linhas de A
-        for (unsigned long int j = 0; j < P; j++) {   // percorre colunas de B
+    for (unsigned long int i = 0; i < M; i++) {      
+        for (unsigned long int j = 0; j < P; j++) {  
 
             // acumulador vetorial: inicializa com zero
             __m256 sum_vec = _mm256_setzero_ps();
@@ -62,8 +66,6 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
                 __m256 a_vec = _mm256_load_ps(&matrixA->rows[i * N + k]);
 
                 // extrai 8 elementos da coluna j de B
-                // (não estão consecutivos em memória (pois é coluna/vertical), por isso o uso de 
-                // um buffer temporário para juntar e depois carregar)
                 float* columnsB = aligned_alloc(32, 8 * sizeof(float));
                 for (int x = 0; x < 8; x++) {
                     columnsB[x] = matrixB->rows[(k + x) * P + j];
@@ -71,7 +73,6 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
                 __m256 b_vec = _mm256_load_ps(columnsB);
 
                 // FMA: sum_vec = sum_vec + (a_vec * b_vec)
-                // -> uma multiplicação + soma numa única instrução
                 sum_vec = _mm256_fmadd_ps(a_vec, b_vec, sum_vec);
             }
 
@@ -82,7 +83,6 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
             float total = auxiliar[0] + auxiliar[1] + auxiliar[2] + auxiliar[3] +
                           auxiliar[4] + auxiliar[5] + auxiliar[6] + auxiliar[7];
 
-            // salva resultado na posição (i,j) de C
             matrixC->rows[i * P + j] = total;
         }
     }
