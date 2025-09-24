@@ -64,11 +64,11 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
                 // extrai 8 elementos da coluna j de B
                 // (não estão consecutivos em memória (pois é coluna/vertical), por isso o uso de 
                 // um buffer temporário para juntar e depois carregar)
-                alignas(32) float tempB[8];
+                float* columnsB = aligned_alloc(32, 8 * sizeof(float));
                 for (int x = 0; x < 8; x++) {
-                    tempB[x] = matrixB->rows[(k + x) * P + j];
+                    columnsB[x] = matrixB->rows[(k + x) * P + j];
                 }
-                __m256 b_vec = _mm256_load_ps(tempB);
+                __m256 b_vec = _mm256_load_ps(columnsB);
 
                 // FMA: sum_vec = sum_vec + (a_vec * b_vec)
                 // -> uma multiplicação + soma numa única instrução
@@ -76,11 +76,11 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
             }
 
             // somar os 8 elementos do registrador YMM (sum_vec)
-            alignas(32) float partial[8];
-            _mm256_store_ps(partial, sum_vec);
+            float* auxiliar = aligned_alloc(32, 8 * sizeof(float));
+            _mm256_store_ps(auxiliar, sum_vec);
 
-            float total = partial[0] + partial[1] + partial[2] + partial[3] +
-                          partial[4] + partial[5] + partial[6] + partial[7];
+            float total = auxiliar[0] + auxiliar[1] + auxiliar[2] + auxiliar[3] +
+                          auxiliar[4] + auxiliar[5] + auxiliar[6] + auxiliar[7];
 
             // salva resultado na posição (i,j) de C
             matrixC->rows[i * P + j] = total;
