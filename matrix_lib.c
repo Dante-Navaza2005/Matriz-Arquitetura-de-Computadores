@@ -1,47 +1,58 @@
-/*
-Dante Honorato Navaza 2321406
-Maria Laura Soares 2320467
-*/
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <immintrin.h>  
+#include <stdint.h>
 #include "matrix_lib.h"
 
-// Multiplicação de uma matriz por um escalar usando AVX
-int scalarMatrixMult(float scalar_value, struct matrix *matrix) {
-    if (matrix == NULL || matrix->rows == NULL) {
-        return 0; // erro
+Matrix* getMatrixTransposed(Matrix* matrix) {
+    if (!matrix || !matrix->rows) return NULL;
+
+    Matrix* transposed = malloc(sizeof(Matrix));
+    transposed->height = matrix->width;
+    transposed->width  = matrix->height;
+    size_t size = transposed->height * transposed->width;
+    transposed->rows = (float*) aligned_alloc(32, sizeof(float) * size);
+
+    size_t block_size = 8; // bloco 8x8
+
+    for (size_t i = 0; i < matrix->height; i += block_size) {
+        for (size_t j = 0; j < matrix->width; j += block_size) {
+            // Processa bloco 8x8
+            for (size_t block_i = 0; block_i < block_size && i + block_i < matrix->height; block_i++) {
+                for (size_t block_j = 0; block_j < block_size && j + block_j < matrix->width; block_j++) {
+                    // Carrega 1 float de cada vez (poderia vectorizar linhas se alinhado)
+                    transposed->rows[(j + block_j) * transposed->width + (i + block_i)] =
+                        matrix->rows[(i + block_i) * matrix->width + (j + block_j)];
+                }
+            }
+        }
     }
 
-    unsigned long int size = matrix->height * matrix->width;
-    unsigned long int i = 0;
-
-    // _mm256_set1_ps: broadcast -> cria um vetor YMM (256 bits) com 8 floats todos iguais ao valor escalar fornecido.
-    // Esse vetor é usado para multiplicar "em paralelo" 8 elementos da matriz.
-    __m256 scalar_vec = _mm256_set1_ps(scalar_value);
-
-    // usa em blocos de 8 floats (256 bits)
-    for (; i + 8 <= size; i += 8) {
-        __m256 m = _mm256_load_ps(&(matrix->rows[i]));
-
-
-        m = _mm256_mul_ps(m, scalar_vec);
-
-        // salva o resultado de volta na matriz
-        _mm256_store_ps(&(matrix->rows[i]), m);
-    }
-
-    // se sobrou sobrado algum elemento 
-    for (; i < size; i++) {
-        matrix->rows[i] *= scalar_value;
-    }
-
-    return 1; 
+    return transposed;
 }
 
-// Multiplicação de matrizes usando AVX + FMA
-int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matrix *matrixC) {
+// Multiplicação de matriz por escalar usando AVX
+int scalarMatrixMult(float scalar, Matrix* matrix) {
+    if (!matrix || !matrix->rows) return 0;
+
+    size_t size = matrix->height * matrix->width;
+    __m256 scalar_vector = _mm256_set1_ps(scalar);
+
+    size_t i = 0;
+    for (; i + 8 <= size; i += 8) {
+        __m256 m = _mm256_load_ps(&matrix->rows[i]);
+        m = _mm256_mul_ps(m, scalar_vector);
+        _mm256_store_ps(&matrix->rows[i], m);
+    }
+    for (; i < size; i++){
+        matrix->rows[i] *= scalar;
+    } 
+
+    return 1;
+}
+
+// Multiplicação de matrizes usando AVX + FMA com B transposta
+int matrixMatrixMult(Matrix* matrixA, Matrix* matrixB, Matrix* matrixC) {
     if (matrixA == NULL || matrixB == NULL || matrixC == NULL ||
         matrixA->width != matrixB->height ||
         matrixC->height != matrixA->height ||
@@ -49,43 +60,45 @@ int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matr
         return 0; 
     }
 
-    unsigned long int M = matrixA->height; 
-    unsigned long int N = matrixA->width;   
-    unsigned long int P = matrixB->width;    
+    Matrix* B_transposed = getMatrixTransposed(matrixB);
+    
+    if (!B_transposed){
+        return 0;
+    } 
 
+    size_t AH = matrixA->height; 
+    size_t AW = matrixA->width;   
+    size_t BW = matrixB->width; 
 
-    for (unsigned long int i = 0; i < M; i++) {      
-        for (unsigned long int j = 0; j < P; j++) {  
-
-            // acumulador vetorial: inicializa com zero
+    for (size_t i = 0; i < AH; i++) {
+        for (size_t j = 0; j < BW; j++) {
             __m256 sum_vec = _mm256_setzero_ps();
+            size_t k = 0;
 
-            // percorre linha de A e coluna de B em blocos de 8 floats
-            for (unsigned long int k = 0; k < N; k += 8) {
-                // carrega 8 elementos consecutivos da linha i de A
-                __m256 a_vec = _mm256_load_ps(&matrixA->rows[i * N + k]);
-
-                // extrai 8 elementos da coluna j de B
-                float* columnsB = aligned_alloc(32, 8 * sizeof(float));
-                for (int x = 0; x < 8; x++) {
-                    columnsB[x] = matrixB->rows[(k + x) * P + j];
-                }
-                __m256 b_vec = _mm256_load_ps(columnsB);
-
-                // FMA: sum_vec = sum_vec + (a_vec * b_vec)
-                sum_vec = _mm256_fmadd_ps(a_vec, b_vec, sum_vec);
+            // Blocos de 8 floats
+            for (; k + 8 <= AW; k += 8) {
+                __m256 vec_a = _mm256_load_ps(&matrixA->rows[i * AW + k]);
+                __m256 vec_b = _mm256_load_ps(&B_transposed->rows[j * B_transposed->width + k]);
+                sum_vec = _mm256_fmadd_ps(vec_a, vec_b, sum_vec);
             }
 
-            // somar os 8 elementos do registrador YMM (sum_vec)
-            float* auxiliar = aligned_alloc(32, 8 * sizeof(float));
-            _mm256_store_ps(auxiliar, sum_vec);
+            // Somar elementos do registrador sum_vec
+            __m128 low  = _mm256_castps256_ps128(sum_vec);
+            __m128 high = _mm256_extractf128_ps(sum_vec, 1);
+            __m128 sum  = _mm_add_ps(low, high);
+            sum = _mm_hadd_ps(sum, sum);
+            sum = _mm_hadd_ps(sum, sum);
+            float total = _mm_cvtss_f32(sum);
 
-            float total = auxiliar[0] + auxiliar[1] + auxiliar[2] + auxiliar[3] +
-                          auxiliar[4] + auxiliar[5] + auxiliar[6] + auxiliar[7];
+            // Se sobrar elementos
+            for (; k < AW; k++)
+                total += matrixA->rows[i * AW + k] * B_transposed->rows[j * B_transposed->width + k];
 
-            matrixC->rows[i * P + j] = total;
+            matrixC->rows[i * matrixC->width + j] = total;
         }
     }
 
-    return 1; 
+    free(B_transposed->rows);
+    free(B_transposed);
+    return 1;
 }

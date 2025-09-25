@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DIMENSION 1024  
+#define DIMENSION 2048  
 
 int main(void) {
     FILE *arquivoA, *arquivoB;

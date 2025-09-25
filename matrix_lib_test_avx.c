@@ -5,6 +5,7 @@ Maria Laura Soares 2320467
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include <immintrin.h>  
 #include "matrix_lib.h" 
@@ -27,61 +28,95 @@ static void print_matrix_limited(const char *label, const Matrix *m) {
     }
 }
 
+// Lê matriz de arquivo binário em blocos de 8 floats usando AVX
+int getMatrixFromFile(const char* path, Matrix* m) {
+    if (!m || !m->rows) return 0;
 
-
-int getMatrixFromFile(const char* path, Matrix* m){
     FILE* f = fopen(path, "rb");
-
-    if(!f){
-        printf("Erro de leitura");
-        exit(1);
+    if (!f) {
+        printf("Erro de leitura do arquivo %s\n", path);
+        return 0;
     }
 
     size_t total = m->height * m->width;
-    if (total % 8 != 0) {
-        return 0; 
+
+    // Verifica alinhamento
+    int aligned = ((uintptr_t)m->rows % 32) == 0;
+
+    size_t i = 0;
+    for (; i + 8 <= total; i += 8) {
+        float auxiliar[8]; // buffer temporário para fread
+        if (fread(auxiliar, sizeof(float), 8, f) != 8) {
+            printf("Erro ao ler matriz do arquivo %s\n", path);
+            fclose(f);
+            return 0;
+        }
+        __m256 vec = _mm256_loadu_ps(auxiliar);  // usa loadu_ps, pq é seguro mesmo se não estiver alinhado
+        if (aligned) { // verifica alinhamento
+            _mm256_store_ps(&m->rows[i], vec);
+        } else {
+            _mm256_storeu_ps(&m->rows[i], vec);
+        }
     }
-    float* auxiliar = (float*) aligned_alloc(32, total * sizeof(float));
-    if (!auxiliar) {
-        printf("Erro de alocação");
-        fclose(f);
-        exit(1);
+
+    // Elementos restantes se tiver (no nosso caso não ter pq é multiplo de 8)
+    for (; i < total; i++) {
+        if (fread(&m->rows[i], sizeof(float), 1, f) != 1) {
+            printf("Erro ao ler matriz do arquivo %s\n", path);
+            fclose(f);
+            return 0;
+        }
     }
-    if (fread(auxiliar, sizeof(float), total, f) != total) {
-        printf("Erro ao ler matriz do arquivo %s", path);
-        free(auxiliar);
-        fclose(f);
-        return 0;
-    }
+
     fclose(f);
-
-    // Copiar do auxiliar para m->rows com AVX (tudo alinhado e múltiplo de 8)
-    for (size_t i = 0; i < total; i += 8) {
-        __m256 v = _mm256_load_ps(auxiliar + i);
-        _mm256_store_ps(m->rows + i, v);
-    }
-
-    free(auxiliar);
     return 1;
 }
 
-int saveMatrix(const char* path, Matrix *m){
+// Salva matriz em arquivo binário em blocos de 8 floats usando AVX
+int saveMatrix(const char* path, Matrix* m) {
+    if (!m || !m->rows) return 0;
+
     FILE* f = fopen(path, "wb");
-
-    if(!f){
-        printf("Erro de leitura");
-        exit(1);
-    }
-
-    size_t written = fwrite(m->rows, sizeof(float), m->height * m->width, f);
-    fclose(f);
-
-    if (written != m->height * m->width) {
-        fprintf(stderr, "Erro: número incorreto de elementos escritos em %s\n", path);
+    if (!f) {
+        printf("Erro ao abrir arquivo %s para escrita\n", path);
         return 0;
     }
+
+    size_t total = m->height * m->width;
+    int aligned = ((uintptr_t)m->rows % 32) == 0;
+
+    size_t i = 0;
+    for (; i + 8 <= total; i += 8) {
+        __m256 vec;
+        if (aligned) {
+            vec = _mm256_load_ps(&m->rows[i]);
+        } else {
+            vec = _mm256_loadu_ps(&m->rows[i]);
+        }
+
+        float auxiliar[8];
+        _mm256_storeu_ps(auxiliar, vec);  // storeu é seguro para gravar em buffer temporário
+
+        if (fwrite(auxiliar, sizeof(float), 8, f) != 8) {
+            printf("Erro ao escrever matriz no arquivo %s\n", path);
+            fclose(f);
+            return 0;
+        }
+    }
+
+    // Elementos restantes
+    for (; i < total; i++) {
+        if (fwrite(&m->rows[i], sizeof(float), 1, f) != 1) {
+            printf("Erro ao escrever matriz no arquivo %s\n", path);
+            fclose(f);
+            return 0;
+        }
+    }
+
+    fclose(f);
     return 1;
 }
+
 
 int initializeWithZeros(Matrix *m){
     size_t total = m->height * m->width;
