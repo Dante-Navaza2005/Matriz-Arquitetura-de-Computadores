@@ -12,7 +12,6 @@ Maria Laura Soares 2320467
 #include "matrix_lib.h"
 #include "timer.h"
 
-/* Função auxiliar: imprime até 256 elementos da matriz */
 static void print_matrix_limited(const char *label, const Matrix *m) {
     unsigned long int total = m->height * m->width;
     unsigned long int limit = total > 256UL ? 256UL : total;
@@ -27,7 +26,7 @@ static void print_matrix_limited(const char *label, const Matrix *m) {
     }
 }
 
-/* Função para ler matriz de arquivo binário */
+// Lê matriz de arquivo binário em blocos de 8 floats usando AVX
 int getMatrixFromFile(const char* path, Matrix* m) {
     if (!m || !m->rows)
         return 0;
@@ -40,14 +39,16 @@ int getMatrixFromFile(const char* path, Matrix* m) {
     int aligned = ((uintptr_t)m->rows % 32) == 0;
     size_t i = 0;
     for (; i + 8 <= total; i += 8) {
-        float aux[8];
-        if (fread(aux, sizeof(float), 8, f) != 8) {
-            printf("Erro ao ler %s\n", path);
+        float auxiliar[8];
+
+        if (fread(auxiliar, sizeof(float), 8, f) != 8) {
+            printf("Erro ao ler matriz do arquivo %s\n", path);
             fclose(f);
             return 0;
         }
-        __m256 vec = _mm256_loadu_ps(aux);
-        if (aligned)
+        __m256 vec = _mm256_loadu_ps(auxiliar); // usa loadu_ps, pq é seguro mesmo se não estiver alinhado
+
+        if (aligned) // verifica alinhamento
             _mm256_store_ps(&m->rows[i], vec);
         else
             _mm256_storeu_ps(&m->rows[i], vec);
@@ -74,7 +75,6 @@ int saveMatrix(const char* path, Matrix* m) {
     return 1;
 }
 
-/* Inicializa matriz com zeros */
 int initializeWithZeros(Matrix *m) {
     size_t total = m->height * m->width;
     if (total % 8 != 0) return 0;
@@ -84,7 +84,6 @@ int initializeWithZeros(Matrix *m) {
     return 1;
 }
 
-/* ============================= MAIN ============================= */
 int main(int argc, char *argv[]) {
     if (argc != 11) {
         printf("Uso: ./matrix_lib_test <escalar> <hA> <wA> <hB> <wB> <n_threads> <arquivoA> <arquivoB> <arquivoA_result> <arquivoC>\n");
@@ -128,25 +127,25 @@ int main(int argc, char *argv[]) {
     print_matrix_limited("Matriz A", &matrixA);
     print_matrix_limited("Matriz B", &matrixB);
 
-    /* Multiplicação escalar */
+    /* multiplicacao escalar */
     gettimeofday(&start, NULL);
     if (!scalarMatrixMult(num_esc, &matrixA)) {
-        printf("Erro na multiplicação escalar\n");
+        printf("Erro ao calcular a multiplicação escalar de A\n");
         return 1;
     }
     gettimeofday(&stop, NULL);
-    printf("\nTempo da multiplicação escalar: %.3f ms\n", timedifference_msec(start, stop));
+    printf("\nTempo da multiplicacao escalar: %.3f ms\n", timedifference_msec(start, stop));
 
     saveMatrix(fileA_r, &matrixA);
 
-    /* Multiplicação de matrizes */
+    /* multiplicacao de matrizes */
     gettimeofday(&start, NULL);
     if (!matrixMatrixMult(&matrixA, &matrixB, &matrixC)) {
-        printf("Erro na multiplicação de matrizes\n");
+        printf("Erro na multiplicacao de matrizes\n");
         return 1;
     }
     gettimeofday(&stop, NULL);
-    printf("\nTempo da multiplicação de matrizes: %.3f ms\n", timedifference_msec(start, stop));
+    printf("\nTempo da multiplicacao de matrizes: %.3f ms\n", timedifference_msec(start, stop));
 
     saveMatrix(fileC, &matrixC);
 
