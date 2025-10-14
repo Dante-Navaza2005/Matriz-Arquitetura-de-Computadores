@@ -13,6 +13,9 @@ struct matrix {
     float *rows;              
 };
 
-int scalarMatrixMult(float scalar_value, struct matrix *matrix);
-
-int matrixMatrixMult(struct matrix *matrixA, struct matrix *matrixB, struct matrix *matrixC);
+void set_number_threads(int n);
+Matrix* getMatrixTransposed(Matrix* matrix);
+void* scalar_mult_thread(void *arg);
+int scalar_matrix_mult(float scalar_value, Matrix *matrix);
+void* matrix_mult_thread(void *arg);
+int matrix_matrix_mult(Matrix *matrixA, Matrix *matrixB, Matrix *matrixC);
