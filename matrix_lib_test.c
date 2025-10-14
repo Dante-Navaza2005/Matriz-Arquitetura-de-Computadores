@@ -101,6 +101,7 @@ int main(int argc, char *argv[]) {
 
     if (!getMatrixFromFile(fileA, &A) || !getMatrixFromFile(fileB, &B)) return 1;
     initializeWithZeros(&C);
+    print_matrix_limited("Matriz C zerada", &C);
 
     print_matrix_limited("Matriz A", &A);
     print_matrix_limited("Matriz B", &B);
@@ -109,6 +110,7 @@ int main(int argc, char *argv[]) {
     gettimeofday(&start, NULL);
     scalar_matrix_mult(scalar, &A);
     gettimeofday(&stop, NULL);
+    print_matrix_limited("Matriz A após multiplicação escalar", &A);
     printf("\nTempo multiplicação escalar: %.3f ms\n", timedifference_msec(start, stop));
     saveMatrix(fileA_r, &A);
 
