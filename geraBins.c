@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define DIMENSION 1024  
+#define DIMENSION 2048 
 
 int main(void) {
     FILE *arquivoA, *arquivoB;
@@ -9,15 +9,15 @@ int main(void) {
     long long total;
     long long i;
 
-    arquivoA = fopen("matrixA.dat", "wb");
+    arquivoA = fopen("floats_256_2.0f.dat", "wb");
     if (!arquivoA) {
-        perror("Erro ao abrir matrizA.dat");
+        perror("Erro ao abrir floats_256_2.0f.dat");
         return 1;
     }
 
-    arquivoB = fopen("matrixB.dat", "wb");
+    arquivoB = fopen("floats_256_5.0f.dat", "wb");
     if (!arquivoB) {
-        perror("Erro ao abrir matrizB.dat");
+        perror("Erro ao abrir floats_256_5.0f.dat");
         fclose(arquivoA);
         return 1;
     }

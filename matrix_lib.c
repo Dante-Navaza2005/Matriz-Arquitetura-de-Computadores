@@ -53,36 +53,31 @@ Matrix* getMatrixTransposed(Matrix* matrix) {
 
 // executa a multiplicação escalar em parte da matriz atribuída a thread
 void* scalar_mult_thread(void *arg) { 
-    long thread_id = (long)arg;  // id da thread
+    long thread_id = (long)arg;  
     Matrix *m = global_matrix_scalar;
     float scalar = global_scalar;
-
-    size_t rows_per_thread = m->height / num_threads;
-    size_t start_row = thread_id * rows_per_thread;
-    size_t end_row = (thread_id == num_threads - 1) ? m->height : (thread_id + 1) * rows_per_thread;
     size_t width = m->width;
 
-    __m256 scalar_vec = _mm256_set1_ps(scalar); // replica escalar 8x no reg
+    __m256 scalar_vec = _mm256_set1_ps(scalar); // escalar replicado em AVX
 
-    // cada thread processa um bloco de linhas
-    for (size_t i = start_row; i < end_row; i++) {
+    // cada thread processa linhas intercaladas
+    for (size_t i = thread_id; i < m->height; i += num_threads) {
         size_t offset = i * width;
         size_t j = 0;
 
-        // processa 8 floats por vez com AVX
         for (; j + 8 <= width; j += 8) {
             __m256 vec = _mm256_load_ps(&m->rows[offset + j]);
-            vec = _mm256_mul_ps(vec, scalar_vec); // mult vetorial
+            vec = _mm256_mul_ps(vec, scalar_vec);
             _mm256_store_ps(&m->rows[offset + j], vec);
         }
 
-        // sobra de elementos (nao multiplo de 8)
         for (; j < width; j++)
             m->rows[offset + j] *= scalar;
     }
 
     pthread_exit(NULL);
 }
+
 
 int scalar_matrix_mult(float scalar_value, Matrix *matrix) {
      if (!matrix || !matrix->rows)
@@ -106,52 +101,51 @@ int scalar_matrix_mult(float scalar_value, Matrix *matrix) {
 
 // executa a multiplicação de matrizes nas linhas atribuídas a thread.
 void* matrix_mult_thread(void *arg) {
-    long thread_id = (long)arg;  // id thread
+    long thread_id = (long)arg;  // Identificador da thread
 
+    // Matrizes globais compartilhadas
     Matrix *A = thread_matrixA;
     Matrix *B_T = thread_matrixB_transposed;
     Matrix *C = thread_matrixC;
 
     size_t A_height = A->height;
-    size_t A_width = A->width;
-    size_t B_width = B_T->height;
+    size_t A_width  = A->width;
+    size_t B_width  = B_T->height; // B transposta: linhas = colunas originais de B
 
-    size_t rows_per_thread = A_height / num_threads;
-    size_t start_row = thread_id * rows_per_thread;
-    size_t end_row = (thread_id == num_threads - 1) ? A_height : (thread_id + 1) * rows_per_thread;
-
-    // cada thread calcula algumas linhas de C
-    for (size_t i = start_row; i < end_row; i++) {
+    // Cada thread processará linhas intercaladas:
+    // thread_id, thread_id + num_threads, thread_id + 2*num_threads, ...
+    for (size_t i = thread_id; i < A_height; i += num_threads) {
         for (size_t j = 0; j < B_width; j++) {
-            __m256 sum_vec = _mm256_setzero_ps(); // acumula soma vetorial
+            __m256 sum_vec = _mm256_setzero_ps(); // acumulador vetorial AVX
             size_t k = 0;
 
-            // usa AVX + FMA p/ processar 8 floats por vez
+            // Multiplicação vetorial AVX + FMA (8 floats por vez)
             for (; k + 8 <= A_width; k += 8) {
                 __m256 a = _mm256_load_ps(&A->rows[i * A_width + k]);
                 __m256 b = _mm256_load_ps(&B_T->rows[j * B_T->width + k]);
-                sum_vec = _mm256_fmadd_ps(a, b, sum_vec); // FMA: a*b + sum
+                sum_vec = _mm256_fmadd_ps(a, b, sum_vec); // sum_vec += a*b
             }
 
-            // reduz vetor AVX p/ float escalar
-            __m128 low = _mm256_castps256_ps128(sum_vec);
+            // Reduz vetor AVX para float escalar
+            __m128 low  = _mm256_castps256_ps128(sum_vec);
             __m128 high = _mm256_extractf128_ps(sum_vec, 1);
-            __m128 sum = _mm_add_ps(low, high);
+            __m128 sum  = _mm_add_ps(low, high);
             sum = _mm_hadd_ps(sum, sum);
             sum = _mm_hadd_ps(sum, sum);
             float total = _mm_cvtss_f32(sum);
 
-            // processa resto (q nao cabe em bloco de 8)
+            // Processa o restante (caso não múltiplo de 8)
             for (; k < A_width; k++)
                 total += A->rows[i * A_width + k] * B_T->rows[j * B_T->width + k];
 
-            // grava resultado final
+            // Escreve o resultado final na matriz C
             C->rows[i * C->width + j] = total;
         }
     }
 
     pthread_exit(NULL);
 }
+
 
 int matrix_matrix_mult(Matrix *matrixA, Matrix *matrixB, Matrix *matrixC) {
    if (!matrixA || !matrixB || !matrixC)
@@ -181,4 +175,3 @@ int matrix_matrix_mult(Matrix *matrixA, Matrix *matrixB, Matrix *matrixC) {
 
     return 1;
 }
-
