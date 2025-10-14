@@ -129,7 +129,7 @@ int main(int argc, char *argv[]) {
 
     /* multiplicacao escalar */
     gettimeofday(&start, NULL);
-    if (!scalarMatrixMult(num_esc, &matrixA)) {
+    if (!scalar_matrix_mult(num_esc, &matrixA)) {
         printf("Erro ao calcular a multiplicação escalar de A\n");
         return 1;
     }
@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
 
     /* multiplicacao de matrizes */
     gettimeofday(&start, NULL);
-    if (!matrixMatrixMult(&matrixA, &matrixB, &matrixC)) {
+    if (!matrix_matrix_mult(&matrixA, &matrixB, &matrixC)) {
         printf("Erro na multiplicacao de matrizes\n");
         return 1;
     }
