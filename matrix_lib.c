@@ -85,7 +85,7 @@ void* scalar_mult_thread(void *arg) {
 }
 
 int scalar_matrix_mult(float scalar_value, Matrix *matrix) {
-    if (!matrix || !matrix->rows)
+     if (!matrix || !matrix->rows)
         return 0;
 
     // define vars globais por threads
@@ -96,7 +96,7 @@ int scalar_matrix_mult(float scalar_value, Matrix *matrix) {
 
     // cria threads e esperando acabar
     for (long t = 0; t < num_threads; t++)
-        pthread_create(&threads[t], NULL, scalar_mult_thread, (void*)(intptr_t)t);
+        pthread_create(&threads[t], NULL, scalar_mult_thread, (void*)t);
 
     for (int t = 0; t < num_threads; t++)
         pthread_join(threads[t], NULL);
@@ -109,12 +109,12 @@ void* matrix_mult_thread(void *arg) {
     long thread_id = (long)arg;  // id thread
 
     Matrix *A = thread_matrixA;
-    Matrix *B_transposed = thread_matrixB_transposed;
+    Matrix *B_T = thread_matrixB_transposed;
     Matrix *C = thread_matrixC;
 
     size_t A_height = A->height;
     size_t A_width = A->width;
-    size_t B_width = B_transposed->height;
+    size_t B_width = B_T->height;
 
     size_t rows_per_thread = A_height / num_threads;
     size_t start_row = thread_id * rows_per_thread;
@@ -129,7 +129,7 @@ void* matrix_mult_thread(void *arg) {
             // usa AVX + FMA p/ processar 8 floats por vez
             for (; k + 8 <= A_width; k += 8) {
                 __m256 a = _mm256_load_ps(&A->rows[i * A_width + k]);
-                __m256 b = _mm256_load_ps(&B_transposed->rows[j * B_transposed->width + k]);
+                __m256 b = _mm256_load_ps(&B_T->rows[j * B_T->width + k]);
                 sum_vec = _mm256_fmadd_ps(a, b, sum_vec); // FMA: a*b + sum
             }
 
@@ -143,7 +143,7 @@ void* matrix_mult_thread(void *arg) {
 
             // processa resto (q nao cabe em bloco de 8)
             for (; k < A_width; k++)
-                total += A->rows[i * A_width + k] * B_transposed->rows[j * B_transposed->width + k];
+                total += A->rows[i * A_width + k] * B_T->rows[j * B_T->width + k];
 
             // grava resultado final
             C->rows[i * C->width + j] = total;
@@ -154,7 +154,7 @@ void* matrix_mult_thread(void *arg) {
 }
 
 int matrix_matrix_mult(Matrix *matrixA, Matrix *matrixB, Matrix *matrixC) {
-    if (!matrixA || !matrixB || !matrixC)
+   if (!matrixA || !matrixB || !matrixC)
         return 0;
     if (matrixA->width != matrixB->height)
         return 0;
@@ -167,10 +167,11 @@ int matrix_matrix_mult(Matrix *matrixA, Matrix *matrixB, Matrix *matrixC) {
     thread_matrixB_transposed = B_transposed;
     thread_matrixC = matrixC;
 
+
     pthread_t threads[num_threads];
 
     for (long t = 0; t < num_threads; t++)
-        pthread_create(&threads[t], NULL, matrix_mult_thread, (void*)(intptr_t)t);
+        pthread_create(&threads[t], NULL, matrix_mult_thread, (void*)t);
 
     for (int t = 0; t < num_threads; t++)
         pthread_join(threads[t], NULL);
