@@ -95,7 +95,7 @@ int saveMatrix(const char* path, Matrix* m) {
         }
 
         float auxiliar[8];
-        _mm256_storeu_ps(auxiliar, vec);  // storeu é seguro para gravar em buffer temporário
+        _mm256_storeu_ps(auxiliar, vec);
 
         if (fwrite(auxiliar, sizeof(float), 8, f) != 8) {
             printf("Erro ao escrever matriz no arquivo %s\n", path);
