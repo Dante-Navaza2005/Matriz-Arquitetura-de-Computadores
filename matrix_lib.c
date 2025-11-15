@@ -99,46 +99,63 @@ int scalar_matrix_mult(float scalar_value, Matrix *matrix) {
     return 1;
 }
 
-// executa a multiplicação de matrizes nas linhas atribuídas a thread.
 void* matrix_mult_thread(void *arg) {
-    long thread_id = (long)arg;  // Identificador da thread
+    long thread_id = (long)arg;
 
-    // Matrizes globais compartilhadas
-    Matrix *A = thread_matrixA;
+    Matrix *A   = thread_matrixA;
     Matrix *B_T = thread_matrixB_transposed;
-    Matrix *C = thread_matrixC;
+    Matrix *C   = thread_matrixC;
 
     size_t A_height = A->height;
     size_t A_width  = A->width;
-    size_t B_width  = B_T->height; // B transposta: linhas = colunas originais de B
+    size_t B_width  = B_T->height;
 
-    // Cada thread processará linhas intercaladas:
-    // thread_id, thread_id + num_threads, thread_id + 2*num_threads, ...
     for (size_t i = thread_id; i < A_height; i += num_threads) {
         for (size_t j = 0; j < B_width; j++) {
-            __m256 sum_vec = _mm256_setzero_ps(); // acumulador vetorial AVX
+
+            __m256 sum_vec = _mm256_setzero_ps();
             size_t k = 0;
 
-            // Multiplicação vetorial AVX + FMA (8 floats por vez)
             for (; k + 8 <= A_width; k += 8) {
                 __m256 a = _mm256_load_ps(&A->rows[i * A_width + k]);
                 __m256 b = _mm256_load_ps(&B_T->rows[j * B_T->width + k]);
-                sum_vec = _mm256_fmadd_ps(a, b, sum_vec); // sum_vec += a*b
+                sum_vec = _mm256_fmadd_ps(a, b, sum_vec);
             }
 
-            // Reduz vetor AVX para float escalar
-            __m128 low  = _mm256_castps256_ps128(sum_vec);
-            __m128 high = _mm256_extractf128_ps(sum_vec, 1);
-            __m128 sum  = _mm_add_ps(low, high);
-            sum = _mm_hadd_ps(sum, sum);
-            sum = _mm_hadd_ps(sum, sum);
-            float total = _mm_cvtss_f32(sum);
+            if (k < A_width) {
+                size_t restante = A_width - k;
 
-            // Processa o restante (caso não múltiplo de 8)
-            for (; k < A_width; k++)
-                total += A->rows[i * A_width + k] * B_T->rows[j * B_T->width + k];
+                float *a_tmp = aligned_alloc(32, 8 * sizeof(float));
+                float *b_tmp = aligned_alloc(32, 8 * sizeof(float));
 
-            // Escreve o resultado final na matriz C
+                for (size_t t = 0; t < 8; t++) {
+                    if (t < restante) {
+                        a_tmp[t] = A->rows[i * A_width + (k + t)];
+                        b_tmp[t] = B_T->rows[j * B_T->width + (k + t)];
+                    } else {
+                        a_tmp[t] = 0.0f;
+                        b_tmp[t] = 0.0f;
+                    }
+                }
+
+                __m256 a = _mm256_load_ps(a_tmp);
+                __m256 b = _mm256_load_ps(b_tmp);
+
+                sum_vec = _mm256_fmadd_ps(a, b, sum_vec);
+
+                free(a_tmp);
+                free(b_tmp);
+            }
+
+            float *temp = aligned_alloc(32, 8 * sizeof(float));
+            _mm256_store_ps(temp, sum_vec);
+
+            float total = 0.0f;
+            for (int t = 0; t < 8; t++)
+                total += temp[t];
+
+            free(temp);
+
             C->rows[i * C->width + j] = total;
         }
     }
