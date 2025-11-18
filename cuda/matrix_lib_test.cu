@@ -98,19 +98,19 @@ int main(int argc, char *argv[]) {
     A.height = altura_a;
     A.width = largura_a;
     A.h_rows = (float*) malloc(tamanho_a * sizeof(float));
-
+    
     B.height = altura_b;
     B.width = largura_b;
     B.h_rows = (float*) malloc(tamanho_b * sizeof(float));
-
+    
     C.height = altura_a;
     C.width = largura_b;
     C.h_rows = (float*) malloc(tamanho_c * sizeof(float));
-
+    
     // Carrega arquivos .dat
     load_float_file(arquivo_a, A.h_rows, tamanho_a);
     load_float_file(arquivo_b, B.h_rows, tamanho_b);
-
+    
     // Calcula bytes totais necessários
     unsigned long total_bytes =
         (tamanho_a + tamanho_b + tamanho_c) * sizeof(float);
@@ -173,6 +173,7 @@ int main(int argc, char *argv[]) {
 
     // Multiplicação escalar
     gettimeofday(&t1, NULL);
+    print_matrix_preview("A antes da multiplicacao escalar", A.h_rows, altura_a, largura_a);
     scalar_matrix_mult(scalar, &A);
     gettimeofday(&t2, NULL);
 
@@ -192,7 +193,7 @@ int main(int argc, char *argv[]) {
     double tempo_total = timedifference_msec(t0, t2);
 
     // Imprime prévias das matrizes
-    print_matrix_preview("A", A.h_rows, altura_a, largura_a);
+    print_matrix_preview("A dps da multiplicacao escalar", A.h_rows, altura_a, largura_a);
     print_matrix_preview("B", B.h_rows, altura_b, largura_b);
     print_matrix_preview("C", C.h_rows, altura_a, largura_b);
 
