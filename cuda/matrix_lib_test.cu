@@ -1,3 +1,8 @@
+/*
+Dante Honorato Navaza 2321406
+Maria Laura Soares 2320467
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>

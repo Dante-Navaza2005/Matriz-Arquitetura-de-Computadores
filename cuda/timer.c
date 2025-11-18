@@ -1,3 +1,7 @@
+/*
+Dante Honorato Navaza 2321406
+Maria Laura Soares 2320467
+*/
 #include "timer.h"
 /*
 * float timedifference_msec(struct timeval t0, struct timeval t1)

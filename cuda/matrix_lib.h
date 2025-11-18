@@ -1,6 +1,7 @@
-#ifndef MATRIX_LIB_H
-#define MATRIX_LIB_H
-
+/*
+Dante Honorato Navaza 2321406
+Maria Laura Soares 2320467
+*/
 #define FULL_ALLOC 1
 #define PARTIAL_ALLOC 0
 
@@ -19,5 +20,3 @@ int scalar_matrix_mult(float scalar_value, struct matrix *matrix);
 int matrix_matrix_mult(struct matrix *A,
                        struct matrix *B,
                        struct matrix *C);
-
-#endif
