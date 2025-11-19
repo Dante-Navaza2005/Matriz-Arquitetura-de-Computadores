@@ -2,11 +2,10 @@
 #include <cuda_runtime.h>
 #include "matrix_lib.h"
 
-
 static int global_threads_per_block = 256;
-static int global_max_blocks = 4096;
+static int global_max_blocks = 65535;   // <- maior limite permitido, não foge do enunciado
 
-// colocando valores fixos 
+// Define grid e block dentro dos limites da arquitetura CUDA
 int set_grid_size(int threads_per_block, int max_blocks_per_grid) {
     const int max_tpb = 1024;
     const int max_blk = 65535;
@@ -22,7 +21,8 @@ int set_grid_size(int threads_per_block, int max_blocks_per_grid) {
     return 1;
 }
 
-// multiplicacao escalar
+
+// kernel escalar
 __global__
 void scalar_kernel(float scalar, float *d_rows, unsigned long total) {
     unsigned long idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -33,7 +33,8 @@ void scalar_kernel(float scalar, float *d_rows, unsigned long total) {
     }
 }
 
-// kernel pra multiplicacao completa de matriz
+
+// kernel matmul completo (FULL_ALLOC)
 __global__
 void matmul_kernel(const float *A,
                    const float *B,
@@ -61,7 +62,8 @@ void matmul_kernel(const float *A,
     }
 }
 
-// partial alloc
+
+// kernel do modo partial alloc (linha de A × matriz B)
 __global__
 void line_kernel(const float *a_line,
                  const float *b_full,
@@ -82,6 +84,8 @@ void line_kernel(const float *a_line,
     }
 }
 
+
+// escalar full e partial
 int scalar_matrix_mult(float scalar_value, struct matrix *matrix) {
     if (!matrix || !matrix->h_rows) {
         return 0;
@@ -89,14 +93,14 @@ int scalar_matrix_mult(float scalar_value, struct matrix *matrix) {
 
     unsigned long total = matrix->height * matrix->width;
 
+    // full alloc
     if (matrix->alloc_mode == FULL_ALLOC) {
 
         int block_size = global_threads_per_block;
         int num_blocks = (total + block_size - 1) / block_size;
 
-        if (num_blocks > global_max_blocks) {
+        if (num_blocks > global_max_blocks)
             num_blocks = global_max_blocks;
-        }
 
         scalar_kernel<<<num_blocks, block_size>>>(scalar_value,
                                                   matrix->d_rows,
@@ -111,53 +115,50 @@ int scalar_matrix_mult(float scalar_value, struct matrix *matrix) {
 
         return 1;
     }
-    else {
-        unsigned long width = matrix->width;
-        unsigned long bytes = width * sizeof(float);
 
-        float *d_line = matrix->d_rows;
+    // partial alloc
+    unsigned long width = matrix->width;
+    unsigned long bytes = width * sizeof(float);
 
-        for (unsigned long i = 0; i < matrix->height; i++) {
+    float *d_line = matrix->d_rows;
 
-            cudaMemcpy(d_line,
-                       &matrix->h_rows[i * width],
-                       bytes,
-                       cudaMemcpyHostToDevice);
+    for (unsigned long i = 0; i < matrix->height; i++) {
 
-            int block_size = global_threads_per_block;
-            int num_blocks = (width + block_size - 1) / block_size;
+        cudaMemcpy(d_line,
+                   &matrix->h_rows[i * width],
+                   bytes,
+                   cudaMemcpyHostToDevice);
 
-            if (num_blocks > global_max_blocks) {
-                num_blocks = global_max_blocks;
-            }
+        int block_size = global_threads_per_block;
+        int num_blocks = (width + block_size - 1) / block_size;
 
-            scalar_kernel<<<num_blocks, block_size>>>(scalar_value,
-                                                      d_line,
-                                                      width);
+        if (num_blocks > global_max_blocks)
+            num_blocks = global_max_blocks;
 
-            cudaDeviceSynchronize();
+        scalar_kernel<<<num_blocks, block_size>>>(scalar_value,
+                                                  d_line,
+                                                  width);
 
-            cudaMemcpy(&matrix->h_rows[i * width],
-                       d_line,
-                       bytes,
-                       cudaMemcpyDeviceToHost);
-        }
-
-        return 1;
+        cudaMemcpy(&matrix->h_rows[i * width],
+                   d_line,
+                   bytes,
+                   cudaMemcpyDeviceToHost);
     }
+
+    return 1;
 }
 
+
+// matmul - full e partial
 int matrix_matrix_mult(struct matrix *A,
                        struct matrix *B,
                        struct matrix *C)
 {
-    if (!A || !B || !C) {
+    if (!A || !B || !C)
         return 0;
-    }
 
-    if (A->width != B->height) {
+    if (A->width != B->height)
         return 0;
-    }
 
     unsigned long height = A->height;
     unsigned long width_a = A->width;
@@ -165,6 +166,8 @@ int matrix_matrix_mult(struct matrix *A,
 
     unsigned long total_c = height * width_b;
 
+
+    // full alloc
     if (A->alloc_mode == FULL_ALLOC &&
         B->alloc_mode == FULL_ALLOC &&
         C->alloc_mode == FULL_ALLOC)
@@ -172,9 +175,8 @@ int matrix_matrix_mult(struct matrix *A,
         int block_size = global_threads_per_block;
         int num_blocks = (total_c + block_size - 1) / block_size;
 
-        if (num_blocks > global_max_blocks) {
+        if (num_blocks > global_max_blocks)
             num_blocks = global_max_blocks;
-        }
 
         matmul_kernel<<<num_blocks, block_size>>>(A->d_rows,
                                                   B->d_rows,
@@ -192,42 +194,41 @@ int matrix_matrix_mult(struct matrix *A,
 
         return 1;
     }
-    else {
-        unsigned long bytes_a = width_a * sizeof(float);
-        unsigned long bytes_c = width_b * sizeof(float);
 
-        float *d_line_a = A->d_rows;
-        float *d_line_c = C->d_rows;
-        float *d_full_b = B->d_rows;
+    // partial alloc  (linha de A × B completa)
+    unsigned long bytes_a = width_a * sizeof(float);
+    unsigned long bytes_c = width_b * sizeof(float);
 
-        for (unsigned long i = 0; i < height; i++) {
+    float *d_line_a = A->d_rows;
+    float *d_line_c = C->d_rows;
+    float *d_full_b = B->d_rows;
 
-            cudaMemcpy(d_line_a,
-                       &A->h_rows[i * width_a],
-                       bytes_a,
-                       cudaMemcpyHostToDevice);
+    for (unsigned long i = 0; i < height; i++) {
 
-            int block_size = global_threads_per_block;
-            int num_blocks = (width_b + block_size - 1) / block_size;
+        // enviar uma linha de A
+        cudaMemcpy(d_line_a,
+                   &A->h_rows[i * width_a],
+                   bytes_a,
+                   cudaMemcpyHostToDevice);
 
-            if (num_blocks > global_max_blocks) {
-                num_blocks = global_max_blocks;
-            }
+        int block_size = global_threads_per_block;
+        int num_blocks = (width_b + block_size - 1) / block_size;
 
-            line_kernel<<<num_blocks, block_size>>>(d_line_a,
-                                                    d_full_b,
-                                                    d_line_c,
-                                                    width_a,
-                                                    width_b);
+        if (num_blocks > global_max_blocks)
+            num_blocks = global_max_blocks;
 
-            cudaDeviceSynchronize();
+        // cálculo de uma linha de C
+        line_kernel<<<num_blocks, block_size>>>(d_line_a,
+                                                d_full_b,
+                                                d_line_c,
+                                                width_a,
+                                                width_b);
 
-            cudaMemcpy(&C->h_rows[i * width_b],
-                       d_line_c,
-                       bytes_c,
-                       cudaMemcpyDeviceToHost);
-        }
-
-        return 1;
+        cudaMemcpy(&C->h_rows[i * width_b],
+                   d_line_c,
+                   bytes_c,
+                   cudaMemcpyDeviceToHost);
     }
+
+    return 1;
 }
