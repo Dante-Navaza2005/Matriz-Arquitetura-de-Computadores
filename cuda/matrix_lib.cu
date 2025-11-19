@@ -3,6 +3,7 @@ Dante Honorato Navaza 2321406
 Maria Laura Soares 2320467
 */
 #include <stdio.h>
+#include <math.h>
 #include <cuda_runtime.h>
 #include "matrix_lib.h"
 
@@ -47,8 +48,11 @@ void matmul_kernel(const float *A,
                    unsigned long width_b)
 {
     unsigned long total = height * width_b;
-    unsigned long idx = blockIdx.x * blockDim.x + threadIdx.x;
-    unsigned long stride = blockDim.x * gridDim.x;
+    unsigned long threads_per_block = blockDim.x * blockDim.y;
+    unsigned long block_id = blockIdx.x;
+    unsigned long local_id = threadIdx.y * blockDim.x + threadIdx.x;
+    unsigned long idx = block_id * threads_per_block + local_id;
+    unsigned long stride = threads_per_block * gridDim.x;
 
     for (unsigned long pos = idx; pos < total; pos += stride) {
 
@@ -174,18 +178,28 @@ int matrix_matrix_mult(struct matrix *A,
         C->alloc_mode == FULL_ALLOC)
     {
         int block_size = global_threads_per_block;
-        int num_blocks = (total_c + block_size - 1) / block_size;
+        int side = (int) sqrt((double) block_size);
+
+        if (side <= 0 || side * side != block_size) {
+            side = block_size;
+        }
+
+        dim3 block(side, side);
+        int threads_per_block = block.x * block.y;
+        int num_blocks = (total_c + threads_per_block - 1) / threads_per_block;
 
         if (num_blocks > global_max_blocks) {
             num_blocks = global_max_blocks;
         }
 
-        matmul_kernel<<<num_blocks, block_size>>>(A->d_rows,
-                                                  B->d_rows,
-                                                  C->d_rows,
-                                                  height,
-                                                  width_a,
-                                                  width_b);
+        dim3 grid(num_blocks, 1);
+
+        matmul_kernel<<<grid, block>>>(A->d_rows,
+                                       B->d_rows,
+                                       C->d_rows,
+                                       height,
+                                       width_a,
+                                       width_b);
 
         cudaDeviceSynchronize();
 
