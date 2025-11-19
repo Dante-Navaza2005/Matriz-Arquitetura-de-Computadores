@@ -200,9 +200,6 @@ int main(int argc, char *argv[]) {
     printf("Tempo scalar = %.4f ms\n", tempo_scalar);
     printf("Tempo matmul = %.4f ms\n", tempo_matmul);
     printf("Tempo total  = %.4f ms\n", tempo_total);
-
-    printf("\n------ PROCESSADOR (lscpu) ------\n");
-    system("lscpu");
-
+    
     return 0;
 }
